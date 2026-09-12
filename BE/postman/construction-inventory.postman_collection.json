@@ -1,0 +1,602 @@
+{
+  "info": {
+    "_postman_id": "b7e2f4a0-6c1a-4b2e-9c3d-construction-inv-01",
+    "name": "Construction Inventory API",
+    "description": "Sites, Contractors, Daily Logs, Wages, and Inventory endpoints for the construction-inventory backend. Run 'Sites > Create Site' then 'Contractors > Create Contractor' first — they auto-populate {{siteId}} and {{contractorId}} used by the Wages folder.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{authToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "authToken", "value": "test-token", "type": "string" },
+    { "key": "siteId", "value": "", "type": "string" },
+    { "key": "contractorId", "value": "", "type": "string" },
+    { "key": "dailyLogId", "value": "", "type": "string" },
+    { "key": "wageId", "value": "", "type": "string" },
+    { "key": "inventoryId", "value": "", "type": "string" },
+    { "key": "transactionId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sites",
+      "item": [
+        {
+          "name": "List Sites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/sites", "host": ["{{baseUrl}}"], "path": ["sites"] }
+          }
+        },
+        {
+          "name": "Create Site",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('siteId', body._id);",
+                  "  console.log('siteId set to', body._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Riverside Block A\",\n  \"address\": \"12 River Rd\",\n  \"client\": \"Acme Corp\",\n  \"startDate\": \"2026-08-18\",\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/sites", "host": ["{{baseUrl}}"], "path": ["sites"] }
+          }
+        },
+        {
+          "name": "Get Site By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/sites/{{siteId}}", "host": ["{{baseUrl}}"], "path": ["sites", "{{siteId}}"] }
+          }
+        },
+        {
+          "name": "Update Site",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/sites/{{siteId}}", "host": ["{{baseUrl}}"], "path": ["sites", "{{siteId}}"] }
+          }
+        },
+        {
+          "name": "Delete Site",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/sites/{{siteId}}", "host": ["{{baseUrl}}"], "path": ["sites", "{{siteId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contractors",
+      "item": [
+        {
+          "name": "List Contractors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contractors?site={{siteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contractors"],
+              "query": [{ "key": "site", "value": "{{siteId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create Contractor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('contractorId', body._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site\": \"{{siteId}}\",\n  \"name\": \"ABC Civil Contractors\",\n  \"workerTypes\": [\"Mason\", \"MC\", \"Machine rent\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/contractors", "host": ["{{baseUrl}}"], "path": ["contractors"] }
+          }
+        },
+        {
+          "name": "Get Contractor By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contractors/{{contractorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contractors", "{{contractorId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Contractor (add worker type)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workerTypes\": [\"Mason\", \"MC\", \"Machine rent\", \"Plumber\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contractors/{{contractorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contractors", "{{contractorId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Contractor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/contractors/{{contractorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contractors", "{{contractorId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Daily Logs",
+      "item": [
+        {
+          "name": "List Daily Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/daily-logs?site={{siteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["daily-logs"],
+              "query": [{ "key": "site", "value": "{{siteId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create Daily Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('dailyLogId', body._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site\": \"{{siteId}}\",\n  \"date\": \"2026-08-20\",\n  \"workDescription\": \"Foundation pour\",\n  \"workersPresent\": 6,\n  \"weather\": \"Sunny\",\n  \"notes\": \"Completed north wing footing\",\n  \"createdBy\": \"Site Supervisor\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/daily-logs", "host": ["{{baseUrl}}"], "path": ["daily-logs"] }
+          }
+        },
+        {
+          "name": "Get Daily Log By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/daily-logs/{{dailyLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["daily-logs", "{{dailyLogId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Daily Log",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workersPresent\": 8,\n  \"notes\": \"Added two more workers in the afternoon\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/daily-logs/{{dailyLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["daily-logs", "{{dailyLogId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Daily Log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/daily-logs/{{dailyLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["daily-logs", "{{dailyLogId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wages",
+      "item": [
+        {
+          "name": "List Wage Entries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wages?site={{siteId}}&date=2026-08-21",
+              "host": ["{{baseUrl}}"],
+              "path": ["wages"],
+              "query": [
+                { "key": "site", "value": "{{siteId}}" },
+                { "key": "date", "value": "2026-08-21", "description": "Optional, YYYY-MM-DD. Remove to list all dates." }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Wage Entry (hourly)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('wageId', body._id);",
+                  "  pm.test('amount computed server-side', () => {",
+                  "    pm.expect(body.amount).to.eql(body.hoursWorked * body.ratePerHour);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site\": \"{{siteId}}\",\n  \"contractor\": \"{{contractorId}}\",\n  \"workerType\": \"Mason\",\n  \"date\": \"2026-08-20\",\n  \"hoursWorked\": 8,\n  \"ratePerHour\": 15.5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/wages", "host": ["{{baseUrl}}"], "path": ["wages"] }
+          }
+        },
+        {
+          "name": "Create Wage Entry (flat amount)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site\": \"{{siteId}}\",\n  \"contractor\": \"{{contractorId}}\",\n  \"workerType\": \"Machine rent\",\n  \"date\": \"2026-08-20\",\n  \"amount\": 500\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/wages", "host": ["{{baseUrl}}"], "path": ["wages"] }
+          }
+        },
+        {
+          "name": "Get Wage Entry By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/wages/{{wageId}}", "host": ["{{baseUrl}}"], "path": ["wages", "{{wageId}}"] }
+          }
+        },
+        {
+          "name": "Update Wage Entry (mark paid, default amount)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paid\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/wages/{{wageId}}", "host": ["{{baseUrl}}"], "path": ["wages", "{{wageId}}"] }
+          }
+        },
+        {
+          "name": "Update Wage Entry (mark paid, adjusted amount)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paid\": true,\n  \"paidAmount\": 100\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/wages/{{wageId}}", "host": ["{{baseUrl}}"], "path": ["wages", "{{wageId}}"] }
+          }
+        },
+        {
+          "name": "Update Wage Entry (mark unpaid)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paid\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/wages/{{wageId}}", "host": ["{{baseUrl}}"], "path": ["wages", "{{wageId}}"] }
+          }
+        },
+        {
+          "name": "Delete Wage Entry",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/wages/{{wageId}}", "host": ["{{baseUrl}}"], "path": ["wages", "{{wageId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "List Inventory Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inventory?site={{siteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory"],
+              "query": [{ "key": "site", "value": "{{siteId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create Inventory Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('inventoryId', body._id);",
+                  "  pm.test('lowStock flag present', () => {",
+                  "    pm.expect(body).to.have.property('lowStock');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site\": \"{{siteId}}\",\n  \"name\": \"Cement bags\",\n  \"category\": \"material\",\n  \"unit\": \"bags\",\n  \"minThreshold\": 10\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/inventory", "host": ["{{baseUrl}}"], "path": ["inventory"] }
+          }
+        },
+        {
+          "name": "Get Inventory Item By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Inventory Item (rename/threshold)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minThreshold\": 20\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Inventory Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Record Stock-In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('transactionId', body._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"stock-in\",\n  \"quantity\": 100,\n  \"date\": \"2026-08-20\",\n  \"note\": \"Delivery from supplier\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}", "transactions"]
+            }
+          }
+        },
+        {
+          "name": "Record Usage",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"usage\",\n  \"quantity\": 30,\n  \"date\": \"2026-08-21\",\n  \"note\": \"Used for column reinforcement\",\n  \"recordedBy\": \"Site Engineer\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}", "transactions"]
+            }
+          }
+        },
+        {
+          "name": "List Item Transactions (stock history)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}/transactions?date=2026-08-21",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}", "transactions"],
+              "query": [
+                { "key": "date", "value": "2026-08-21", "description": "Optional, YYYY-MM-DD. Remove to list full history." }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Item Transaction (reverses balance)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{inventoryId}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{inventoryId}}", "transactions", "{{transactionId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Summary (date range)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard?site={{siteId}}&from=2026-08-15&to=2026-08-21",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"],
+              "query": [
+                { "key": "site", "value": "{{siteId}}" },
+                { "key": "from", "value": "2026-08-15", "description": "YYYY-MM-DD, inclusive" },
+                { "key": "to", "value": "2026-08-21", "description": "YYYY-MM-DD, inclusive" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Dashboard Summary (xlsx)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/export?site={{siteId}}&from=2026-08-15&to=2026-08-21",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "export"],
+              "query": [
+                { "key": "site", "value": "{{siteId}}" },
+                { "key": "from", "value": "2026-08-15", "description": "YYYY-MM-DD, inclusive" },
+                { "key": "to", "value": "2026-08-21", "description": "YYYY-MM-DD, inclusive" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
