@@ -99,67 +99,71 @@ export function AdminsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Admins</Text>
-      <Text style={styles.subtitle}>Onboard a company admin along with their enterprise</Text>
-
-      <CollapsibleSection
-        title="Create Admin"
-        subtitle="Onboard a new company admin"
-        expanded={formExpanded}
-        onToggle={setFormExpanded}
-      >
-        <TextInput style={styles.input} placeholder="Admin name" value={name} onChangeText={setName} />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-        />
-        <Text style={styles.label}>Enterprise</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Company name"
-          value={enterpriseName}
-          onChangeText={setEnterpriseName}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Company address"
-          value={enterpriseAddress}
-          onChangeText={setEnterpriseAddress}
-          multiline
-        />
-        {formError && <Text style={styles.error}>{formError}</Text>}
-        <Pressable style={styles.button} onPress={handleCreate} disabled={submitting}>
-          <Text style={styles.buttonText}>{submitting ? 'Creating…' : 'Create Admin'}</Text>
-        </Pressable>
-      </CollapsibleSection>
-
-      {lastCreated && <NewCredentialsCard credentials={lastCreated} onDismiss={() => setLastCreated(null)} />}
-
-      <TextInput
-        style={styles.input}
-        placeholder="Search admins by name, email or phone"
-        value={search}
-        onChangeText={setSearch}
-        autoCapitalize="none"
-      />
-
-      {listError && <Text style={styles.error}>{listError}</Text>}
-
       <FlatList
         data={admins}
         keyExtractor={(item) => item._id}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => loadAdmins(page, search)} />}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.title}>Admins</Text>
+            <Text style={styles.subtitle}>Onboard a company admin along with their enterprise</Text>
+
+            <CollapsibleSection
+              title="Create Admin"
+              subtitle="Onboard a new company admin"
+              expanded={formExpanded}
+              onToggle={setFormExpanded}
+            >
+              <TextInput style={styles.input} placeholder="Admin name" value={name} onChangeText={setName} />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+              <Text style={styles.label}>Enterprise</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Company name"
+                value={enterpriseName}
+                onChangeText={setEnterpriseName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Company address"
+                value={enterpriseAddress}
+                onChangeText={setEnterpriseAddress}
+                multiline
+              />
+              {formError && <Text style={styles.error}>{formError}</Text>}
+              <Pressable style={styles.button} onPress={handleCreate} disabled={submitting}>
+                <Text style={styles.buttonText}>{submitting ? 'Creating…' : 'Create Admin'}</Text>
+              </Pressable>
+            </CollapsibleSection>
+
+            {lastCreated && <NewCredentialsCard credentials={lastCreated} onDismiss={() => setLastCreated(null)} />}
+
+            <TextInput
+              style={styles.input}
+              placeholder="Search admins by name, email or phone"
+              value={search}
+              onChangeText={setSearch}
+              autoCapitalize="none"
+            />
+
+            {listError && <Text style={styles.error}>{listError}</Text>}
+          </>
+        }
         ListEmptyComponent={!loading ? <Text style={styles.empty}>No admins found</Text> : null}
         renderItem={({ item }) => <AdminCard admin={item} />}
         ListFooterComponent={
