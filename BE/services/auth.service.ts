@@ -161,4 +161,27 @@ export const authService = {
     }
     return updated;
   },
+
+  async resetEngineerPassword(id: string, adminId: string) {
+    const user = await userRepo.findById(id);
+    if (!user || user.role !== 'engineer' || user.createdBy?.toString() !== adminId) {
+      throw new HttpError(404, 'Engineer not found');
+    }
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, SALT_ROUNDS);
+    await userRepo.updatePasswordHash(id, passwordHash);
+    return { user, temporaryPassword };
+  },
+
+  async resetAdminPassword(id: string) {
+    const user = await userRepo.findById(id);
+    if (!user || user.role !== 'admin') {
+      throw new HttpError(404, 'Admin not found');
+    }
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, SALT_ROUNDS);
+    await userRepo.updatePasswordHash(id, passwordHash);
+    const enterprise = await enterpriseSettingsService.get(id);
+    return { user, enterprise, temporaryPassword };
+  },
 };

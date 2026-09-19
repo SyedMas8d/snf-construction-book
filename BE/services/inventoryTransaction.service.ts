@@ -24,6 +24,7 @@ export const inventoryTransactionService = {
       date: input.date,
       previousQuantity: item.quantity,
       newQuantity: updatedItem.quantity,
+      amount: input.amount,
       note: input.note,
       recordedBy,
     });
@@ -58,4 +59,14 @@ export const inventoryTransactionService = {
     await inventoryTransactionRepo.deleteById(transactionId);
     return updatedItem;
   },
+
+  async updateAmount(itemId: string, transactionId: string, amount: number) {
+    const transaction = await inventoryTransactionRepo.findById(transactionId);
+    if (!transaction || transaction.item.toString() !== itemId) {
+      throw new HttpError(404, 'Inventory transaction not found');
+    }
+    return inventoryTransactionRepo.updateAmount(transactionId, amount);
+  },
+
+  sumStockInAmountForSite: (site: string) => inventoryTransactionRepo.sumStockInAmountForSite(site),
 };

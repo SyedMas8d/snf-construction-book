@@ -4,6 +4,7 @@ import {
   Contractor,
   CreateAdminResult,
   CreateEngineerResult,
+  CustomerPayment,
   DailyLog,
   DashboardSummary,
   EnterpriseSettings,
@@ -96,6 +97,8 @@ export const api = {
     deleteEngineer: (id: string) => request<void>(`/auth/engineers/${id}`, { method: 'DELETE' }),
     updateEngineerSites: (id: string, assignedSites: string[]) =>
       request<User>(`/auth/engineers/${id}/sites`, { method: 'PATCH', body: JSON.stringify({ assignedSites }) }),
+    resetEngineerPassword: (id: string) =>
+      request<CreateEngineerResult>(`/auth/engineers/${id}/reset-password`, { method: 'PATCH' }),
     createAdmin: (data: {
       name: string;
       email: string;
@@ -107,12 +110,21 @@ export const api = {
       request<PaginatedResult<Admin>>(
         `/auth/admins${toQueryString({ page: params.page, limit: params.limit, search: params.search })}`
       ),
+    resetAdminPassword: (id: string) =>
+      request<CreateAdminResult>(`/auth/admins/${id}/reset-password`, { method: 'PATCH' }),
   },
   sites: {
     list: () => request<Site[]>('/sites'),
     create: (data: Partial<Site>) => request<Site>('/sites', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Site>) =>
       request<Site>(`/sites/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    payments: {
+      list: (siteId: string) => request<CustomerPayment[]>(`/sites/${siteId}/payments`),
+      create: (siteId: string, data: { amount: number; date: string; note?: string }) =>
+        request<CustomerPayment>(`/sites/${siteId}/payments`, { method: 'POST', body: JSON.stringify(data) }),
+      delete: (siteId: string, id: string) =>
+        request<void>(`/sites/${siteId}/payments/${id}`, { method: 'DELETE' }),
+    },
   },
   contractors: {
     list: (siteId?: string) => request<Contractor[]>(`/contractors${toQueryString({ site: siteId })}`),
@@ -162,6 +174,7 @@ export const api = {
           limit: params.limit,
         })}`
       ),
+    get: (id: string) => request<WorkLog>(`/work-logs/${id}`),
     create: (data: { site: string; contractor: string; from: string; to: string }) =>
       request<{ _id: string }>('/work-logs', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: { from: string; to: string }) =>
@@ -204,8 +217,11 @@ export const api = {
       request<PaginatedResult<InventoryItem>>(
         `/inventory${toQueryString({ site: siteId, page: params.page, limit: params.limit })}`
       ),
+    get: (id: string) => request<InventoryItem>(`/inventory/${id}`),
     create: (data: Partial<InventoryItem>) =>
       request<InventoryItem>('/inventory', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<InventoryItem>) =>
+      request<InventoryItem>(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     transactions: {
       list: (itemId: string, date?: string) =>
         request<InventoryTransaction[]>(`/inventory/${itemId}/transactions${toQueryString({ date })}`),
@@ -216,11 +232,15 @@ export const api = {
         }),
       delete: (itemId: string, transactionId: string) =>
         request<void>(`/inventory/${itemId}/transactions/${transactionId}`, { method: 'DELETE' }),
+      updateAmount: (itemId: string, transactionId: string, amount: number) =>
+        request<InventoryTransaction>(`/inventory/${itemId}/transactions/${transactionId}/amount`, {
+          method: 'PATCH',
+          body: JSON.stringify({ amount }),
+        }),
     },
   },
   dashboard: {
-    get: (siteId: string, from: string, to: string) =>
-      request<DashboardSummary>(`/dashboard${toQueryString({ site: siteId, from, to })}`),
+    get: (siteId: string) => request<DashboardSummary>(`/dashboard${toQueryString({ site: siteId })}`),
     exportXlsx: (siteId: string, from: string, to: string) =>
       requestBlob(`/dashboard/export${toQueryString({ site: siteId, from, to })}`),
   },

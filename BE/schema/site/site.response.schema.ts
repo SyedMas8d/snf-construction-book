@@ -9,6 +9,8 @@ export const SiteResponseSchema = z.object({
   client: z.string().optional(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date().optional(),
+  estimatedCost: z.number().optional(),
+  notes: z.string().optional(),
   status: SiteStatusEnum,
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),

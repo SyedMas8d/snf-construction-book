@@ -95,6 +95,31 @@ export const workLogService = {
     return workLog;
   },
 
+  async getWorkLogDetail(id: string) {
+    const workLog = await workLogService.getWorkLog(id);
+    const [contractor, creatorNames, logs] = await Promise.all([
+      contractorRepo.findById(workLog.contractor.toString()),
+      resolveCreatorNames([workLog.createdBy?.toString()]),
+      dailyLogRepo.findAll({ workLog: id }),
+    ]);
+
+    return {
+      _id: workLog._id.toString(),
+      site: workLog.site.toString(),
+      contractor: workLog.contractor.toString(),
+      contractorName: contractor?.name ?? 'Unknown contractor',
+      from: workLog.from,
+      to: workLog.to,
+      createdBy: workLog.createdBy?.toString(),
+      createdByName: workLog.createdBy ? creatorNames.get(workLog.createdBy.toString()) : undefined,
+      entryCount: logs.length,
+      totalWorkerCount: logs.reduce((sum, log) => sum + log.count, 0),
+      fullyPaid: logs.length > 0 && logs.every((log) => log.paid),
+      createdAt: workLog.createdAt,
+      updatedAt: workLog.updatedAt,
+    };
+  },
+
   async updateWorkLog(id: string, input: UpdateWorkLogInput) {
     const existing = await workLogRepo.findById(id);
     if (!existing) {

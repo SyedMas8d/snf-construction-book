@@ -4,10 +4,13 @@ import { inventoryTransactionRepo } from '../repositories/inventoryTransaction.r
 import { contractorRepo } from '../repositories/contractor.repo';
 import { wagePaymentRepo } from '../repositories/wagePayment.repo';
 import { workLogRepo } from '../repositories/workLog.repo';
+import { siteRepo } from '../repositories/site.repo';
+import { customerPaymentRepo } from '../repositories/customerPayment.repo';
 import { InventoryTransaction } from '../models/InventoryTransaction';
 import { InventoryItem } from '../models/InventoryItem';
 import { HydratedDocument } from 'mongoose';
 import { WageExportEntry, WageExportGroup } from '../reports/dashboardWorkbook';
+import { HttpError } from '../utils/httpError';
 
 type ItemBreakdown = {
   itemId: string;
@@ -46,30 +49,23 @@ function groupTransactionsByItem(
 }
 
 export const dashboardService = {
-  async getSummary(siteId: string, from: string, to: string) {
-    const [dailyLogs, transactions, items] = await Promise.all([
-      dailyLogRepo.findAllInRange(siteId, from, to),
-      inventoryTransactionRepo.findForSiteInRange(siteId, from, to),
-      inventoryRepo.findAll({ site: siteId }),
+  async getSummary(siteId: string) {
+    const site = await siteRepo.findById(siteId);
+    if (!site) {
+      throw new HttpError(404, 'Site not found');
+    }
+    const [totalReceived, totalWagesPaid, totalMaterialSpend] = await Promise.all([
+      customerPaymentRepo.sumForSite(siteId),
+      wagePaymentRepo.sumForSite(siteId),
+      inventoryTransactionRepo.sumStockInAmountForSite(siteId),
     ]);
 
-    const wages = dailyLogs.reduce(
-      (acc, log) => {
-        acc.totalWorkerCount += log.count;
-        if (!log.paid) acc.unpaidWorkerCount += log.count;
-        return acc;
-      },
-      { totalWorkerCount: 0, unpaidWorkerCount: 0, entryCount: dailyLogs.length }
-    );
-
-    const byItem = groupTransactionsByItem(transactions, items);
-    const totalStockIn = byItem.reduce((sum, row) => sum + row.stockIn, 0);
-    const totalUsage = byItem.reduce((sum, row) => sum + row.usage, 0);
-
     return {
-      range: { from, to },
-      wages,
-      inventory: { totalStockIn, totalUsage, byItem },
+      estimatedCost: site.estimatedCost,
+      notes: site.notes,
+      totalReceived,
+      totalWagesPaid,
+      totalMaterialSpend,
     };
   },
 

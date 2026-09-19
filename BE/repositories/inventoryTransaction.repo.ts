@@ -15,4 +15,10 @@ export const inventoryTransactionRepo = {
     findAllDocs(InventoryTransactionModel, { site, date: beforeDate(before) }),
   findById: (id: string) => findDocById(InventoryTransactionModel, id),
   deleteById: (id: string) => deleteDocById(InventoryTransactionModel, id),
+  updateAmount: (id: string, amount: number) =>
+    InventoryTransactionModel.findByIdAndUpdate(id, { amount }, { new: true, runValidators: true }),
+  async sumStockInAmountForSite(site: string): Promise<number> {
+    const transactions = await InventoryTransactionModel.find({ site, type: 'stock-in' });
+    return transactions.reduce((sum, tx) => sum + (tx.amount ?? 0), 0);
+  },
 };

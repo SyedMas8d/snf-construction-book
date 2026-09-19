@@ -99,7 +99,7 @@ export function DailyLogsScreen() {
   const [todaysEntries, setTodaysEntries] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedWorkLogId, setExpandedWorkLogId] = useState<string | null>(null);
+  const [openWorkLogId, setOpenWorkLogId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const paginated = bucket !== 'current';
@@ -181,6 +181,17 @@ export function DailyLogsScreen() {
   const contractorById = new Map(contractors.map((c) => [c._id, c]));
   const siteName = sites.find((s) => s._id === selectedSiteId)?.name ?? '';
 
+  if (openWorkLogId) {
+    return (
+      <WorkLogDetailScreen
+        workLogId={openWorkLogId}
+        contractors={contractors}
+        onBack={() => setOpenWorkLogId(null)}
+        onSiteListChanged={refreshAll}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Daily Logs</Text>
@@ -252,15 +263,7 @@ export function DailyLogsScreen() {
             </Text>
           ) : null
         }
-        renderItem={({ item }) => (
-          <WorkLogCard
-            workLog={item}
-            contractor={contractorById.get(item.contractor) ?? null}
-            expanded={expandedWorkLogId === item._id}
-            onToggle={() => setExpandedWorkLogId((current) => (current === item._id ? null : item._id))}
-            onChanged={refreshAll}
-          />
-        )}
+        renderItem={({ item }) => <WorkLogCard workLog={item} onPress={() => setOpenWorkLogId(item._id)} />}
         ListFooterComponent={
           paginated && total > 0 ? <PaginationControls page={page} totalPages={totalPages} onChange={setPage} /> : null
         }
@@ -511,40 +514,12 @@ function NewWorkLogForm({
   );
 }
 
-function WorkLogCard({
-  workLog,
-  contractor,
-  expanded,
-  onToggle,
-  onChanged,
-}: {
-  workLog: WorkLog;
-  contractor: Contractor | null;
-  expanded: boolean;
-  onToggle: () => void;
-  onChanged: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+function WorkLogCard({ workLog, onPress }: { workLog: WorkLog; onPress: () => void }) {
   const locked = workLog.fullyPaid;
 
-  async function handleDelete() {
-    setDeleteError(null);
-    setDeleting(true);
-    try {
-      await api.workLogs.delete(workLog._id);
-      await onChanged();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete work log');
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   return (
-    <Card style={styles.card}>
-      <Pressable onPress={onToggle}>
+    <Pressable onPress={onPress}>
+      <Card style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>{workLog.contractorName}</Text>
           <View style={styles.badgeRow}>
@@ -569,35 +544,134 @@ function WorkLogCard({
             </>
           ) : null}
         </Text>
+      </Card>
+    </Pressable>
+  );
+}
+
+function WorkLogDetailScreen({
+  workLogId,
+  contractors,
+  onBack,
+  onSiteListChanged,
+}: {
+  workLogId: string;
+  contractors: Contractor[];
+  onBack: () => void;
+  onSiteListChanged: () => void;
+}) {
+  const [workLog, setWorkLog] = useState<WorkLog | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const loadWorkLog = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setWorkLog(await api.workLogs.get(workLogId));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load work log');
+    } finally {
+      setLoading(false);
+    }
+  }, [workLogId]);
+
+  useEffect(() => {
+    loadWorkLog();
+  }, [loadWorkLog]);
+
+  const contractor = workLog ? contractors.find((c) => c._id === workLog.contractor) ?? null : null;
+  const locked = workLog?.fullyPaid ?? false;
+
+  async function handleChanged() {
+    await loadWorkLog();
+    onSiteListChanged();
+  }
+
+  async function handleDelete() {
+    setDeleteError(null);
+    setDeleting(true);
+    try {
+      await api.workLogs.delete(workLogId);
+      onSiteListChanged();
+      onBack();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete work log');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <Pressable onPress={onBack} hitSlop={8} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={18} color={colors.primaryDark} />
+        <Text style={styles.backText}>Daily Logs</Text>
       </Pressable>
 
-      {!editing && !locked && (
-        <View style={styles.cardActionsRow}>
-          <Pressable onPress={() => setEditing(true)} hitSlop={8}>
-            <Text style={styles.cardActionText}>Edit</Text>
-          </Pressable>
-          <Pressable onPress={handleDelete} disabled={deleting} hitSlop={8}>
-            <Text style={styles.cardActionTextDanger}>{deleting ? 'Deleting…' : 'Delete'}</Text>
-          </Pressable>
-        </View>
-      )}
-      {deleteError && <Text style={styles.error}>{deleteError}</Text>}
+      {loadError && <Text style={styles.error}>{loadError}</Text>}
+      {loading && !workLog && <Text style={styles.hint}>Loading…</Text>}
 
-      {editing && !locked && (
-        <EditWorkLogForm
-          workLog={workLog}
-          onCancel={() => setEditing(false)}
-          onSaved={async () => {
-            setEditing(false);
-            await onChanged();
-          }}
-        />
-      )}
+      {workLog && (
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}>
+          <Card style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>{workLog.contractorName}</Text>
+              <View style={styles.badgeRow}>
+                {locked && (
+                  <View style={styles.paidBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                    <Text style={styles.paidBadgeText}>Fully Paid</Text>
+                  </View>
+                )}
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{workLog.totalWorkerCount} worker-days</Text>
+                </View>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>
+              {workLog.from.slice(0, 10)} → {workLog.to.slice(0, 10)} · {workLog.entryCount} entr
+              {workLog.entryCount === 1 ? 'y' : 'ies'}
+              {workLog.createdByName ? (
+                <>
+                  {' · Created by '}
+                  <Text style={styles.creatorName}>{workLog.createdByName}</Text>
+                </>
+              ) : null}
+            </Text>
 
-      {expanded && !editing && (
-        <WorkLogDetail workLog={workLog} contractor={contractor} locked={locked} onChanged={onChanged} />
+            {!editing && !locked && (
+              <View style={styles.cardActionsRow}>
+                <Pressable onPress={() => setEditing(true)} hitSlop={8}>
+                  <Text style={styles.cardActionText}>Edit</Text>
+                </Pressable>
+                <Pressable onPress={handleDelete} disabled={deleting} hitSlop={8}>
+                  <Text style={styles.cardActionTextDanger}>{deleting ? 'Deleting…' : 'Delete'}</Text>
+                </Pressable>
+              </View>
+            )}
+            {deleteError && <Text style={styles.error}>{deleteError}</Text>}
+
+            {editing && !locked && (
+              <EditWorkLogForm
+                workLog={workLog}
+                onCancel={() => setEditing(false)}
+                onSaved={async () => {
+                  setEditing(false);
+                  await handleChanged();
+                }}
+              />
+            )}
+          </Card>
+
+          {!editing && (
+            <WorkLogDetail workLog={workLog} contractor={contractor} locked={locked} onChanged={handleChanged} />
+          )}
+        </ScrollView>
       )}
-    </Card>
+    </View>
   );
 }
 
@@ -747,91 +821,98 @@ function WorkLogDetail({
   }
 
   return (
-    <View style={styles.expandedPanel}>
-      {locked ? (
-        <Text style={styles.hint}>This work log is fully paid — entries are locked and can no longer be edited.</Text>
-      ) : (
-        <>
-          <Text style={styles.label}>Insert Entry</Text>
-
-          <Text style={styles.sublabel}>Day</Text>
-          {selectableDates.length === 0 ? (
-            <Text style={styles.hint}>This work log starts in the future — no days are loggable yet.</Text>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {selectableDates.map((d) => (
-                <Chip
-                  key={d}
-                  label={formatShortDate(d)}
-                  active={selectedDate === d}
-                  onPress={() => setSelectedDate(d)}
-                />
-              ))}
-            </ScrollView>
-          )}
-
-          {canInsert &&
-            (contractor && contractor.workerTypes.length > 0 ? (
-              <>
-                <Text style={styles.sublabel}>Worker Type</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                  {contractor.workerTypes.map((type) => (
-                    <Chip
-                      key={type}
-                      label={type}
-                      active={selectedWorkerType === type}
-                      onPress={() => setSelectedWorkerType(type)}
-                    />
-                  ))}
-                </ScrollView>
-              </>
+    <>
+      <Card style={styles.card}>
+        <Text style={styles.label}>Insert Entry</Text>
+        {locked ? (
+          <Text style={styles.hint}>This work log is fully paid — entries are locked and can no longer be edited.</Text>
+        ) : (
+          <>
+            <Text style={styles.sublabel}>Day</Text>
+            {selectableDates.length === 0 ? (
+              <Text style={styles.hint}>This work log starts in the future — no days are loggable yet.</Text>
             ) : (
-              <Text style={styles.hint}>This contractor has no worker types yet — add some in the Contractors tab.</Text>
-            ))}
-
-          {canInsert && (
-            <>
-              <TextField placeholder="Worker count" value={count} onChangeText={setCount} keyboardType="numeric" />
-              <TextField placeholder="Notes (optional)" value={notes} onChangeText={setNotes} />
-              {formError && <Text style={styles.error}>{formError}</Text>}
-              <Button title={submitting ? 'Saving…' : 'Add Entry'} loading={submitting} onPress={handleAddEntry} />
-            </>
-          )}
-        </>
-      )}
-
-      <Text style={[styles.label, styles.historyLabel]}>Entries</Text>
-      {error && <Text style={styles.error}>{error}</Text>}
-      {loading && <Text style={styles.hint}>Loading…</Text>}
-      {!loading && entries.length === 0 && <Text style={styles.hint}>No entries yet</Text>}
-      {[...entries]
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((entry) => (
-          <View key={entry._id} style={styles.entryRow}>
-            <Text style={styles.entryText}>
-              {entry.date.slice(0, 10)} · {entry.workerType} ×{entry.count}
-              {entry.notes ? ` · ${entry.notes}` : ''}
-              {entry.createdByName ? (
-                <>
-                  {' · '}
-                  <Text style={styles.creatorName}>by {entry.createdByName}</Text>
-                </>
-              ) : null}
-            </Text>
-            {!locked && (isAdmin || entry.createdBy === user?._id) && (
-              <Pressable onPress={() => handleDelete(entry._id)} hitSlop={8}>
-                <Text style={styles.deleteText}>Delete</Text>
-              </Pressable>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                {selectableDates.map((d) => (
+                  <Chip
+                    key={d}
+                    label={formatShortDate(d)}
+                    active={selectedDate === d}
+                    onPress={() => setSelectedDate(d)}
+                  />
+                ))}
+              </ScrollView>
             )}
-          </View>
-        ))}
-    </View>
+
+            {canInsert &&
+              (contractor && contractor.workerTypes.length > 0 ? (
+                <>
+                  <Text style={styles.sublabel}>Worker Type</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                    {contractor.workerTypes.map((type) => (
+                      <Chip
+                        key={type}
+                        label={type}
+                        active={selectedWorkerType === type}
+                        onPress={() => setSelectedWorkerType(type)}
+                      />
+                    ))}
+                  </ScrollView>
+                </>
+              ) : (
+                <Text style={styles.hint}>
+                  This contractor has no worker types yet — add some in the Contractors tab.
+                </Text>
+              ))}
+
+            {canInsert && (
+              <>
+                <TextField placeholder="Worker count" value={count} onChangeText={setCount} keyboardType="numeric" />
+                <TextField placeholder="Notes (optional)" value={notes} onChangeText={setNotes} />
+                {formError && <Text style={styles.error}>{formError}</Text>}
+                <Button title={submitting ? 'Saving…' : 'Add Entry'} loading={submitting} onPress={handleAddEntry} />
+              </>
+            )}
+          </>
+        )}
+      </Card>
+
+      <Card style={styles.card}>
+        <Text style={styles.label}>Entries</Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+        {loading && <Text style={styles.hint}>Loading…</Text>}
+        {!loading && entries.length === 0 && <Text style={styles.hint}>No entries yet</Text>}
+        {[...entries]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((entry) => (
+            <View key={entry._id} style={styles.entryRow}>
+              <Text style={styles.entryText}>
+                {entry.date.slice(0, 10)} · {entry.workerType} ×{entry.count}
+                {entry.notes ? ` · ${entry.notes}` : ''}
+                {entry.createdByName ? (
+                  <>
+                    {' · '}
+                    <Text style={styles.creatorName}>by {entry.createdByName}</Text>
+                  </>
+                ) : null}
+              </Text>
+              {!locked && (isAdmin || entry.createdBy === user?._id) && (
+                <Pressable onPress={() => handleDelete(entry._id)} hitSlop={8}>
+                  <Text style={styles.deleteText}>Delete</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+      </Card>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, padding: spacing.lg },
   title: { ...typography.title, marginBottom: spacing.md },
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.md },
+  backText: { color: colors.primaryDark, fontWeight: '700', fontSize: 14 },
   newButton: { marginBottom: spacing.md },
   form: { gap: spacing.sm, marginBottom: spacing.lg },
   overlapWarning: {
@@ -916,14 +997,6 @@ const styles = StyleSheet.create({
   editActionsRow: { flexDirection: 'row', gap: spacing.sm },
   editActionButton: { flex: 1 },
   cardSubtitle: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
-  expandedPanel: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
-  },
-  historyLabel: { marginTop: spacing.md },
   entryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

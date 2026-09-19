@@ -2,7 +2,10 @@ import { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { inventoryTransactionService } from '../services/inventoryTransaction.service';
 import { inventoryService } from '../services/inventory.service';
-import { CreateInventoryTransactionRequestSchema } from '../schema/inventoryTransaction/inventoryTransaction.request.schema';
+import {
+  CreateInventoryTransactionRequestSchema,
+  UpdateInventoryTransactionAmountRequestSchema,
+} from '../schema/inventoryTransaction/inventoryTransaction.request.schema';
 import {
   InventoryTransactionListResponseSchema,
   InventoryTransactionResponseSchema,
@@ -30,6 +33,9 @@ export async function createInventoryTransaction(req: Request, res: Response, ne
     const item = await inventoryService.getInventoryItem(itemId);
     await assertSiteAccess(req.user, item.site.toString());
     const input = validateRequest(CreateInventoryTransactionRequestSchema, req.body);
+    if (input.amount !== undefined && req.user.role !== 'admin') {
+      throw new HttpError(403, 'Only admins can set a payment amount');
+    }
     const transaction = await inventoryTransactionService.recordTransaction(itemId, input, req.user.id);
     const creatorNames = await resolveCreatorNames([req.user.id]);
     const output = validateResponse(InventoryTransactionResponseSchema, {
@@ -57,6 +63,28 @@ export async function listInventoryTransactions(req: Request, res: Response, nex
         recordedByName: t.recordedBy ? creatorNames.get(t.recordedBy.toString()) : undefined,
       }))
     );
+    res.json(output);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateInventoryTransactionAmount(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) {
+      throw new HttpError(401, 'Not authenticated');
+    }
+    const itemId = validateRequest(objectIdSchema, req.params.itemId);
+    const item = await inventoryService.getInventoryItem(itemId);
+    await assertSiteAccess(req.user, item.site.toString());
+    const transactionId = validateRequest(objectIdSchema, req.params.transactionId);
+    const input = validateRequest(UpdateInventoryTransactionAmountRequestSchema, req.body);
+    const transaction = await inventoryTransactionService.updateAmount(itemId, transactionId, input.amount);
+    const creatorNames = await resolveCreatorNames([transaction?.recordedBy?.toString()]);
+    const output = validateResponse(InventoryTransactionResponseSchema, {
+      ...(toPlain(transaction!) as Record<string, unknown>),
+      recordedByName: transaction?.recordedBy ? creatorNames.get(transaction.recordedBy.toString()) : undefined,
+    });
     res.json(output);
   } catch (err) {
     next(err);

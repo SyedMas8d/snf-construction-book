@@ -9,6 +9,8 @@ const inventoryTransactionSchema = new Schema(
     date: { type: Date, required: true },
     previousQuantity: { type: Number, required: true },
     newQuantity: { type: Number, required: true },
+    // Cost paid for a stock-in — admin-only, set at creation or added later once the bill is known.
+    amount: { type: Number, min: 0 },
     note: { type: String, trim: true },
     recordedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

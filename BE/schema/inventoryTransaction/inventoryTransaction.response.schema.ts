@@ -11,6 +11,7 @@ export const InventoryTransactionResponseSchema = z.object({
   date: z.coerce.date(),
   previousQuantity: z.number(),
   newQuantity: z.number(),
+  amount: z.number().optional(),
   note: z.string().optional(),
   recordedBy: objectIdSchema.optional(),
   recordedByName: z.string().optional(),

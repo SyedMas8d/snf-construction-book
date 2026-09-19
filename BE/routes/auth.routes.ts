@@ -11,6 +11,8 @@ import {
   listEngineers,
   login,
   me,
+  resetAdminPassword,
+  resetEngineerPassword,
   signup,
   updateEngineerSites,
 } from '../handlers/auth.handler';
@@ -26,7 +28,9 @@ authRouter.get('/me', requireAuth, me);
 authRouter.patch('/me/password', requireAuth, changePassword);
 authRouter.get('/admins', requireAuth, requireRole('super_admin'), listAdmins);
 authRouter.post('/admins', requireAuth, requireRole('super_admin'), createAdmin);
+authRouter.patch('/admins/:id/reset-password', requireAuth, requireRole('super_admin'), resetAdminPassword);
 authRouter.get('/engineers', requireAuth, requireRole('admin'), listEngineers);
 authRouter.post('/engineers', requireAuth, requireRole('admin'), createEngineer);
 authRouter.delete('/engineers/:id', requireAuth, requireRole('admin'), deleteEngineer);
 authRouter.patch('/engineers/:id/sites', requireAuth, requireRole('admin'), updateEngineerSites);
+authRouter.patch('/engineers/:id/reset-password', requireAuth, requireRole('admin'), resetEngineerPassword);

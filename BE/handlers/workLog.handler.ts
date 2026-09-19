@@ -9,6 +9,7 @@ import {
 import {
   PaginatedWorkLogListResponseSchema,
   WorkLogOverlapsResponseSchema,
+  WorkLogResponseSchema,
 } from '../schema/workLog/workLog.response.schema';
 import { validateRequest, validateResponse } from '../utils/zodValidate';
 import { objectIdSchema } from '../utils/objectId.schema';
@@ -51,6 +52,19 @@ export async function getWorkLogOverlaps(req: Request, res: Response, next: Next
     await assertSiteAccess(req.user, query.site);
     const rows = await workLogService.getOverlaps(query.site, query.contractors, query.from, query.to);
     const output = validateResponse(WorkLogOverlapsResponseSchema, rows);
+    res.json(output);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getWorkLog(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = validateRequest(objectIdSchema, req.params.id);
+    const existing = await workLogService.getWorkLog(id);
+    await assertSiteAccess(req.user, existing.site.toString());
+    const detail = await workLogService.getWorkLogDetail(id);
+    const output = validateResponse(WorkLogResponseSchema, detail);
     res.json(output);
   } catch (err) {
     next(err);

@@ -9,7 +9,7 @@ export async function getDashboardSummary(req: Request, res: Response, next: Nex
   try {
     const query = validateRequest(DashboardQuerySchema, req.query);
     await assertSiteAccess(req.user, query.site);
-    const summary = await dashboardService.getSummary(query.site, query.from, query.to);
+    const summary = await dashboardService.getSummary(query.site);
     const output = validateResponse(DashboardResponseSchema, summary);
     res.json(output);
   } catch (err) {

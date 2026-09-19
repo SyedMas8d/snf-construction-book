@@ -34,7 +34,20 @@ export type Site = {
   client?: string;
   startDate: string;
   endDate?: string;
+  estimatedCost?: number;
+  notes?: string;
   status: 'planned' | 'active' | 'completed' | 'on-hold';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CustomerPayment = {
+  _id: string;
+  site: string;
+  amount: number;
+  date: string;
+  note?: string;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -151,6 +164,7 @@ export type InventoryTransaction = {
   date: string;
   previousQuantity: number;
   newQuantity: number;
+  amount?: number;
   note?: string;
   recordedBy?: string;
   recordedByName?: string;
@@ -159,22 +173,9 @@ export type InventoryTransaction = {
 };
 
 export type DashboardSummary = {
-  range: { from: string; to: string };
-  wages: {
-    totalWorkerCount: number;
-    unpaidWorkerCount: number;
-    entryCount: number;
-  };
-  inventory: {
-    totalStockIn: number;
-    totalUsage: number;
-    byItem: {
-      itemId: string;
-      name: string;
-      unit: string;
-      stockIn: number;
-      usage: number;
-      balanceStock: number;
-    }[];
-  };
+  estimatedCost?: number;
+  notes?: string;
+  totalReceived: number;
+  totalWagesPaid: number;
+  totalMaterialSpend: number;
 };

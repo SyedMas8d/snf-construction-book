@@ -29,6 +29,11 @@ export const wagePaymentRepo = {
     return { items, total, page, limit };
   },
 
+  async sumForSite(site: string): Promise<number> {
+    const payments = await WagePaymentModel.find({ site });
+    return payments.reduce((sum, payment) => sum + payment.amount, 0);
+  },
+
   deleteMatching: (params: { site: string; contractor: string; workerType: string; from: string; to: string }) =>
     WagePaymentModel.deleteMany({
       site: params.site,

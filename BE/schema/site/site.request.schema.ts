@@ -8,6 +8,8 @@ export const CreateSiteRequestSchema = z.object({
   client: z.string().trim().optional(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date().optional(),
+  estimatedCost: z.coerce.number().min(0).optional(),
+  notes: z.string().trim().optional(),
   status: SiteStatusEnum.optional(),
 });
 export type CreateSiteInput = z.infer<typeof CreateSiteRequestSchema>;

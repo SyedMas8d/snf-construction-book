@@ -5,6 +5,9 @@ import { api } from '../api/client';
 import { Admin } from '../api/types';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { CopyButton } from '../components/CopyButton';
+import { PhoneInput } from '../components/PhoneInput';
+import { Country, DEFAULT_COUNTRY } from '../utils/countries';
+import { isValidPhone, toE164 } from '../utils/phone';
 
 type CreatedCredentials = {
   name: string;
@@ -12,6 +15,7 @@ type CreatedCredentials = {
   phone: string;
   temporaryPassword: string;
   enterpriseName: string;
+  title: string;
 };
 
 const PAGE_LIMIT = 10;
@@ -27,6 +31,7 @@ export function AdminsScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<Country>(DEFAULT_COUNTRY);
   const [enterpriseName, setEnterpriseName] = useState('');
   const [enterpriseAddress, setEnterpriseAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -61,8 +66,12 @@ export function AdminsScreen() {
   async function handleCreate() {
     setFormError(null);
     setLastCreated(null);
-    if (!name.trim() || !email.trim() || !phone.trim() || !enterpriseName.trim() || !enterpriseAddress.trim()) {
-      setFormError('All fields are required');
+    if (!name.trim() || !email.trim() || !isValidPhone(phoneCountry, phone) || !enterpriseName.trim() || !enterpriseAddress.trim()) {
+      setFormError(
+        !name.trim() || !email.trim() || !enterpriseName.trim() || !enterpriseAddress.trim()
+          ? 'All fields are required'
+          : 'Enter a valid phone number'
+      );
       return;
     }
 
@@ -71,7 +80,7 @@ export function AdminsScreen() {
       const created = await api.auth.createAdmin({
         name: name.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone: toE164(phoneCountry, phone),
         enterpriseName: enterpriseName.trim(),
         enterpriseAddress: enterpriseAddress.trim(),
       });
@@ -81,10 +90,12 @@ export function AdminsScreen() {
         phone: created.phone,
         temporaryPassword: created.temporaryPassword,
         enterpriseName: created.enterprise.name,
+        title: 'Admin created — share their login details',
       });
       setName('');
       setEmail('');
       setPhone('');
+      setPhoneCountry(DEFAULT_COUNTRY);
       setEnterpriseName('');
       setEnterpriseAddress('');
       setFormExpanded(false);
@@ -124,13 +135,7 @@ export function AdminsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
+              <PhoneInput country={phoneCountry} onChangeCountry={setPhoneCountry} value={phone} onChangeValue={setPhone} />
               <Text style={styles.label}>Enterprise</Text>
               <TextInput
                 style={styles.input}
@@ -165,7 +170,7 @@ export function AdminsScreen() {
           </>
         }
         ListEmptyComponent={!loading ? <Text style={styles.empty}>No admins found</Text> : null}
-        renderItem={({ item }) => <AdminCard admin={item} />}
+        renderItem={({ item }) => <AdminCard admin={item} onReset={setLastCreated} />}
         ListFooterComponent={
           total > 0 ? <PaginationControls page={page} totalPages={totalPages} onChange={setPage} /> : null
         }
@@ -205,7 +210,7 @@ function NewCredentialsCard({
 
   return (
     <View style={styles.credentialsCard}>
-      <Text style={styles.credentialsTitle}>Admin created — share their login details</Text>
+      <Text style={styles.credentialsTitle}>{credentials.title}</Text>
       <Text style={styles.credentialsRow}>Email: {credentials.email}</Text>
       <View style={styles.credentialsPasswordRow}>
         <Text style={styles.credentialsRow}>Password: {credentials.temporaryPassword}</Text>
@@ -225,7 +230,30 @@ function NewCredentialsCard({
   );
 }
 
-function AdminCard({ admin }: { admin: Admin }) {
+function AdminCard({ admin, onReset }: { admin: Admin; onReset: (credentials: CreatedCredentials) => void }) {
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleResetPassword() {
+    setResetting(true);
+    setError(null);
+    try {
+      const result = await api.auth.resetAdminPassword(admin._id);
+      onReset({
+        name: result.name,
+        email: result.email,
+        phone: result.phone,
+        temporaryPassword: result.temporaryPassword,
+        enterpriseName: result.enterprise.name,
+        title: 'Password reset — share their new login details',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{admin.name}</Text>
@@ -236,6 +264,10 @@ function AdminCard({ admin }: { admin: Admin }) {
         <Text style={styles.cardSubtitle}>{admin.enterprise.name}</Text>
       </View>
       <Text style={styles.cardSubtitle}>{admin.enterprise.address}</Text>
+      {error && <Text style={styles.error}>{error}</Text>}
+      <Pressable style={styles.resetButton} onPress={handleResetPassword} disabled={resetting}>
+        <Text style={styles.resetButtonText}>{resetting ? 'Resetting…' : 'Reset Password'}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -329,6 +361,15 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '600' },
   cardSubtitle: { color: '#4b5563', marginTop: 2 },
   enterpriseRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  resetButton: {
+    borderWidth: 1,
+    borderColor: '#d97706',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  resetButtonText: { color: '#d97706', fontWeight: '600' },
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',

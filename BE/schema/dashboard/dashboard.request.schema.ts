@@ -11,18 +11,10 @@ const DashboardBaseQuerySchema = z.object({
   to: dateOnlySchema,
 });
 
-export const DashboardQuerySchema = DashboardBaseQuerySchema.refine((data) => data.from <= data.to, {
-  message: 'from must be on or before to',
-  path: ['from'],
-})
-  .refine((data) => data.to <= todayDateOnly(), {
-    message: 'to cannot be in the future',
-    path: ['to'],
-  })
-  .refine((data) => daysBetween(data.from, data.to) <= MAX_DATE_RANGE_DAYS, {
-    message: `Date range cannot exceed ${MAX_DATE_RANGE_DAYS} days`,
-    path: ['to'],
-  });
+// The main dashboard summary is an all-time snapshot (estimated cost vs. amount
+// received vs. wages paid) — no date range needed. Only the export endpoint below
+// still deals in date-ranged detail.
+export const DashboardQuerySchema = z.object({ site: objectIdSchema });
 export type DashboardQuery = z.infer<typeof DashboardQuerySchema>;
 
 export const DashboardExportQuerySchema = DashboardBaseQuerySchema

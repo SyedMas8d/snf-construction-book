@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { requireRole } from '../middleware/requireRole';
 import {
   createInventoryItem,
   deleteInventoryItem,
@@ -11,6 +12,7 @@ import {
   createInventoryTransaction,
   deleteInventoryTransaction,
   listInventoryTransactions,
+  updateInventoryTransactionAmount,
 } from '../handlers/inventoryTransaction.handler';
 import { getInventoryLedger } from '../handlers/inventoryLedger.handler';
 
@@ -28,4 +30,9 @@ inventoryRouter.delete('/:id', deleteInventoryItem);
 
 inventoryRouter.get('/:itemId/transactions', listInventoryTransactions);
 inventoryRouter.post('/:itemId/transactions', createInventoryTransaction);
+inventoryRouter.patch(
+  '/:itemId/transactions/:transactionId/amount',
+  requireRole('admin'),
+  updateInventoryTransactionAmount
+);
 inventoryRouter.delete('/:itemId/transactions/:transactionId', deleteInventoryTransaction);

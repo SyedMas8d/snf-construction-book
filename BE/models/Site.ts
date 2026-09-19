@@ -8,6 +8,8 @@ const siteSchema = new Schema(
     client: { type: String, trim: true },
     startDate: { type: Date, required: true },
     endDate: { type: Date },
+    estimatedCost: { type: Number, min: 0 },
+    notes: { type: String, trim: true },
     status: {
       type: String,
       enum: ['planned', 'active', 'completed', 'on-hold'],

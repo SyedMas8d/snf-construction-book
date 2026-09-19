@@ -13,6 +13,8 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [client, setClient] = useState('');
+  const [estimatedCost, setEstimatedCost] = useState('');
+  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -30,11 +32,15 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
         name: name.trim(),
         address: address.trim(),
         client: client.trim() || undefined,
+        estimatedCost: estimatedCost.trim() ? Number(estimatedCost) : undefined,
+        notes: notes.trim() || undefined,
         startDate: new Date().toISOString(),
       });
       setName('');
       setAddress('');
       setClient('');
+      setEstimatedCost('');
+      setNotes('');
       setFormExpanded(false);
       await refreshSites();
     } catch (err) {
@@ -46,29 +52,52 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sites</Text>
-
-      <CollapsibleSection
-        title="Add Site"
-        subtitle="Create a new construction site"
-        expanded={formExpanded}
-        onToggle={setFormExpanded}
-      >
-        <TextInput style={styles.input} placeholder="Site name" value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} />
-        <TextInput style={styles.input} placeholder="Client (optional)" value={client} onChangeText={setClient} />
-        {formError && <Text style={styles.error}>{formError}</Text>}
-        <Pressable style={styles.button} onPress={handleCreate} disabled={submitting}>
-          <Text style={styles.buttonText}>{submitting ? 'Creating…' : 'Add Site'}</Text>
-        </Pressable>
-      </CollapsibleSection>
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
       <FlatList
         data={sites}
         keyExtractor={(item) => item._id}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshSites} />}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.title}>Sites</Text>
+
+            <CollapsibleSection
+              title="Add Site"
+              subtitle="Create a new construction site"
+              expanded={formExpanded}
+              onToggle={setFormExpanded}
+            >
+              <TextInput style={styles.input} placeholder="Site name" value={name} onChangeText={setName} />
+              <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} />
+              <TextInput
+                style={styles.input}
+                placeholder="Client (optional)"
+                value={client}
+                onChangeText={setClient}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Estimated cost (optional)"
+                value={estimatedCost}
+                onChangeText={setEstimatedCost}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Notes (optional)"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+              />
+              {formError && <Text style={styles.error}>{formError}</Text>}
+              <Pressable style={styles.button} onPress={handleCreate} disabled={submitting}>
+                <Text style={styles.buttonText}>{submitting ? 'Creating…' : 'Add Site'}</Text>
+              </Pressable>
+            </CollapsibleSection>
+
+            {error && <Text style={styles.error}>{error}</Text>}
+          </>
+        }
         ListEmptyComponent={!loading ? <Text style={styles.empty}>No sites yet</Text> : null}
         renderItem={({ item }) => (
           <SiteCard
@@ -100,6 +129,7 @@ function SiteCard({
   const [name, setName] = useState(site.name);
   const [address, setAddress] = useState(site.address);
   const [client, setClient] = useState(site.client ?? '');
+  const [estimatedCost, setEstimatedCost] = useState(site.estimatedCost?.toString() ?? '');
   const [status, setStatus] = useState(site.status);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +139,7 @@ function SiteCard({
       setName(site.name);
       setAddress(site.address);
       setClient(site.client ?? '');
+      setEstimatedCost(site.estimatedCost?.toString() ?? '');
       setStatus(site.status);
       setError(null);
     }
@@ -127,6 +158,7 @@ function SiteCard({
         name: name.trim(),
         address: address.trim(),
         client: client.trim() || undefined,
+        estimatedCost: estimatedCost.trim() ? Number(estimatedCost) : undefined,
         status,
       });
       await onChanged();
@@ -145,6 +177,9 @@ function SiteCard({
           <Text style={styles.cardTitle}>{site.name}</Text>
           <Text style={styles.cardSubtitle}>{site.address}</Text>
           {site.client && <Text style={styles.cardSubtitle}>Client: {site.client}</Text>}
+          {site.estimatedCost !== undefined && (
+            <Text style={styles.cardSubtitle}>Estimated cost: ₹{site.estimatedCost.toLocaleString('en-IN')}</Text>
+          )}
           <Text style={styles.status}>{site.status}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
@@ -159,6 +194,13 @@ function SiteCard({
           <TextInput style={styles.input} placeholder="Site name" value={name} onChangeText={setName} />
           <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} />
           <TextInput style={styles.input} placeholder="Client (optional)" value={client} onChangeText={setClient} />
+          <TextInput
+            style={styles.input}
+            placeholder="Estimated cost (optional)"
+            value={estimatedCost}
+            onChangeText={setEstimatedCost}
+            keyboardType="numeric"
+          />
 
           <View style={styles.statusRow}>
             {STATUS_OPTIONS.map((option) => (

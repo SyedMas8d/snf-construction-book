@@ -17,8 +17,11 @@ import { api } from '../api/client';
 import { Site, User } from '../api/types';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { CopyButton } from '../components/CopyButton';
+import { PhoneInput } from '../components/PhoneInput';
+import { Country, DEFAULT_COUNTRY } from '../utils/countries';
+import { isValidPhone, toE164 } from '../utils/phone';
 
-type CreatedCredentials = { name: string; email: string; phone: string; temporaryPassword: string };
+type CreatedCredentials = { name: string; email: string; phone: string; temporaryPassword: string; title: string };
 
 function SiteChipPicker({
   sites,
@@ -64,6 +67,7 @@ export function TeamScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<Country>(DEFAULT_COUNTRY);
   const [assignedSiteIds, setAssignedSiteIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -104,8 +108,8 @@ export function TeamScreen() {
   async function handleCreate() {
     setFormError(null);
     setLastCreated(null);
-    if (!name.trim() || !email.trim() || !phone.trim()) {
-      setFormError('All fields are required');
+    if (!name.trim() || !email.trim() || !isValidPhone(phoneCountry, phone)) {
+      setFormError(!name.trim() || !email.trim() ? 'All fields are required' : 'Enter a valid phone number');
       return;
     }
 
@@ -114,7 +118,7 @@ export function TeamScreen() {
       const created = await api.auth.createEngineer({
         name: name.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone: toE164(phoneCountry, phone),
         assignedSites: assignedSiteIds,
       });
       setLastCreated({
@@ -122,10 +126,12 @@ export function TeamScreen() {
         email: created.email,
         phone: created.phone,
         temporaryPassword: created.temporaryPassword,
+        title: 'Engineer created — share their login details',
       });
       setName('');
       setEmail('');
       setPhone('');
+      setPhoneCountry(DEFAULT_COUNTRY);
       setAssignedSiteIds([]);
       setFormExpanded(false);
       await loadEngineers(1, search);
@@ -157,13 +163,7 @@ export function TeamScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-        />
+        <PhoneInput country={phoneCountry} onChangeCountry={setPhoneCountry} value={phone} onChangeValue={setPhone} />
         <Text style={styles.label}>Assigned Sites</Text>
         <SiteChipPicker sites={sites} selectedSiteIds={assignedSiteIds} onToggle={toggleAssignedSite} />
         {formError && <Text style={styles.error}>{formError}</Text>}
@@ -197,6 +197,7 @@ export function TeamScreen() {
             expanded={expandedId === item._id}
             onToggle={() => setExpandedId((current) => (current === item._id ? null : item._id))}
             onChanged={() => loadEngineers(page, search)}
+            onReset={setLastCreated}
           />
         )}
         ListFooterComponent={
@@ -272,7 +273,7 @@ function NewCredentialsCard({
 
   return (
     <View style={styles.credentialsCard}>
-      <Text style={styles.credentialsTitle}>Engineer created — share their login details</Text>
+      <Text style={styles.credentialsTitle}>{credentials.title}</Text>
       <Text style={styles.credentialsRow}>Email: {credentials.email}</Text>
       <View style={styles.credentialsPasswordRow}>
         <Text style={styles.credentialsRow}>Password: {credentials.temporaryPassword}</Text>
@@ -299,6 +300,7 @@ function EngineerCard({
   expanded,
   onToggle,
   onChanged,
+  onReset,
 }: {
   engineer: User;
   sites: Site[];
@@ -306,10 +308,12 @@ function EngineerCard({
   expanded: boolean;
   onToggle: () => void;
   onChanged: () => void;
+  onReset: (credentials: CreatedCredentials) => void;
 }) {
   const [siteIds, setSiteIds] = useState(engineer.assignedSites);
   const [deleting, setDeleting] = useState(false);
   const [savingSites, setSavingSites] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleToggle() {
@@ -349,6 +353,25 @@ function EngineerCard({
     }
   }
 
+  async function handleResetPassword() {
+    setResetting(true);
+    setError(null);
+    try {
+      const result = await api.auth.resetEngineerPassword(engineer._id);
+      onReset({
+        name: result.name,
+        email: result.email,
+        phone: result.phone,
+        temporaryPassword: result.temporaryPassword,
+        title: 'Password reset — share their new login details',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   const assignedNames = engineer.assignedSites.map((id) => siteNameById.get(id) ?? 'Unknown site');
 
   return (
@@ -369,6 +392,9 @@ function EngineerCard({
           {error && <Text style={styles.error}>{error}</Text>}
           <Pressable style={styles.button} onPress={handleSaveSites} disabled={savingSites}>
             <Text style={styles.buttonText}>{savingSites ? 'Saving…' : 'Save Sites'}</Text>
+          </Pressable>
+          <Pressable style={styles.resetButton} onPress={handleResetPassword} disabled={resetting}>
+            <Text style={styles.resetButtonText}>{resetting ? 'Resetting…' : 'Reset Password'}</Text>
           </Pressable>
           <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={deleting}>
             <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete Engineer'}</Text>
@@ -453,6 +479,14 @@ const styles = StyleSheet.create({
     borderTopColor: '#e5e7eb',
     gap: 8,
   },
+  resetButton: {
+    borderWidth: 1,
+    borderColor: '#d97706',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  resetButtonText: { color: '#d97706', fontWeight: '600' },
   deleteButton: {
     borderWidth: 1,
     borderColor: '#dc2626',

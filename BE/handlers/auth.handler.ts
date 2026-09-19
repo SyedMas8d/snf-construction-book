@@ -159,3 +159,35 @@ export async function updateEngineerSites(req: Request, res: Response, next: Nex
     next(err);
   }
 }
+
+export async function resetEngineerPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) {
+      throw new HttpError(401, 'Not authenticated');
+    }
+    const id = validateRequest(objectIdSchema, req.params.id);
+    const { user, temporaryPassword } = await authService.resetEngineerPassword(id, req.user.id);
+    const output = validateResponse(CreateEngineerResponseSchema, {
+      ...(toPlain(user) as Record<string, unknown>),
+      temporaryPassword,
+    });
+    res.json(output);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetAdminPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = validateRequest(objectIdSchema, req.params.id);
+    const { user, enterprise, temporaryPassword } = await authService.resetAdminPassword(id);
+    const output = validateResponse(CreateAdminResponseSchema, {
+      ...(toPlain(user) as Record<string, unknown>),
+      enterprise,
+      temporaryPassword,
+    });
+    res.json(output);
+  } catch (err) {
+    next(err);
+  }
+}
