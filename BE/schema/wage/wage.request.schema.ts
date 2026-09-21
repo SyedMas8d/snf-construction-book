@@ -74,3 +74,28 @@ export const MarkWagesUnpaidRequestSchema = z.object({
   to: dateOnlySchema,
 });
 export type MarkWagesUnpaidInput = z.infer<typeof MarkWagesUnpaidRequestSchema>;
+
+// Pays every worker type on a work log's card in one action — one entry per worker
+// type, amount defaults to 0 when left blank on the client rather than being required.
+export const PayWorkLogRequestSchema = z.object({
+  site: objectIdSchema,
+  workLogId: objectIdSchema,
+  contractor: objectIdSchema,
+  entries: z
+    .array(
+      z.object({
+        workerType: z.string().trim().min(1),
+        amount: z.coerce.number().min(0),
+      })
+    )
+    .min(1),
+});
+export type PayWorkLogInput = z.infer<typeof PayWorkLogRequestSchema>;
+
+export const UnpayWorkLogRequestSchema = z.object({
+  site: objectIdSchema,
+  workLogId: objectIdSchema,
+  contractor: objectIdSchema,
+  workerTypes: z.array(z.string().trim().min(1)).min(1),
+});
+export type UnpayWorkLogInput = z.infer<typeof UnpayWorkLogRequestSchema>;

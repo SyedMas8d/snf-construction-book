@@ -8,6 +8,8 @@ import {
   getWorkLogPayables,
   markWagesPaid,
   markWagesUnpaid,
+  payWorkLog,
+  unpayWorkLog,
 } from '../handlers/wage.handler';
 
 export const wageRouter = Router();
@@ -21,3 +23,5 @@ wageRouter.get('/recent-paid', getRecentWagePayments);
 wageRouter.get('/paysheet-export', exportWagePaysheet);
 wageRouter.patch('/mark-paid', markWagesPaid);
 wageRouter.patch('/mark-unpaid', markWagesUnpaid);
+wageRouter.post('/pay-work-log', payWorkLog);
+wageRouter.post('/unpay-work-log', unpayWorkLog);

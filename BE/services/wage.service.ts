@@ -4,10 +4,17 @@ import { wagePaymentRepo } from '../repositories/wagePayment.repo';
 import { siteRepo } from '../repositories/site.repo';
 import { workLogRepo } from '../repositories/workLog.repo';
 import { enterpriseSettingsService } from './enterpriseSettings.service';
-import { MarkWagesPaidInput, MarkWagesUnpaidInput } from '../schema/wage/wage.request.schema';
+import {
+  MarkWagesPaidInput,
+  MarkWagesUnpaidInput,
+  PayWorkLogInput,
+  UnpayWorkLogInput,
+} from '../schema/wage/wage.request.schema';
 import { RecentWagePayment, WageSummaryRow, WorkLogPayable } from '../schema/wage/wage.response.schema';
 import { PaysheetData, PaysheetRow } from '../reports/wagePaysheet';
 import { SiteScope } from '../utils/siteAccess';
+import { todayDateOnly } from '../utils/dateRange';
+import { HttpError } from '../utils/httpError';
 
 function buildDateRange(from: string, to: string): string[] {
   const dates: string[] = [];
@@ -247,5 +254,65 @@ export const wageService = {
   async markUnpaid(input: MarkWagesUnpaidInput) {
     await dailyLogRepo.markUnpaid(input);
     await wagePaymentRepo.deleteMatching(input);
+  },
+
+  // Pays every worker type on a work log's card in one action. If the work log's
+  // end date is still in the future, it gets closed early — truncated to the last
+  // date that actually has a logged entry — since we're paying for work already
+  // done, not work that hasn't happened yet. The remaining future days are left
+  // for a new work log the admin creates separately.
+  async payWorkLog(input: PayWorkLogInput) {
+    const workLog = await workLogRepo.findById(input.workLogId);
+    if (!workLog) {
+      throw new HttpError(404, 'Work log not found');
+    }
+
+    const logs = await dailyLogRepo.findAll({ workLog: input.workLogId });
+    if (logs.length === 0) {
+      throw new HttpError(422, 'This work log has no entries to pay yet');
+    }
+
+    const from = workLog.from.toISOString().slice(0, 10);
+    const originalTo = workLog.to.toISOString().slice(0, 10);
+    const lastEntryDate = logs.reduce((max, log) => {
+      const dateStr = log.date.toISOString().slice(0, 10);
+      return dateStr > max ? dateStr : max;
+    }, logs[0].date.toISOString().slice(0, 10));
+
+    let to = originalTo;
+    let truncated = false;
+    if (originalTo > todayDateOnly()) {
+      to = lastEntryDate;
+      truncated = true;
+      await workLogRepo.updateById(input.workLogId, { from, to });
+    }
+
+    for (const entry of input.entries) {
+      await dailyLogRepo.markPaid({ site: input.site, contractor: input.contractor, workerType: entry.workerType, from, to });
+      await wagePaymentRepo.create({
+        site: input.site,
+        contractor: input.contractor,
+        workerType: entry.workerType,
+        from,
+        to,
+        amount: entry.amount,
+      });
+    }
+
+    return { truncated, to };
+  },
+
+  async unpayWorkLog(input: UnpayWorkLogInput) {
+    const workLog = await workLogRepo.findById(input.workLogId);
+    if (!workLog) {
+      throw new HttpError(404, 'Work log not found');
+    }
+    const from = workLog.from.toISOString().slice(0, 10);
+    const to = workLog.to.toISOString().slice(0, 10);
+
+    for (const workerType of input.workerTypes) {
+      await dailyLogRepo.markUnpaid({ site: input.site, contractor: input.contractor, workerType, from, to });
+      await wagePaymentRepo.deleteMatching({ site: input.site, contractor: input.contractor, workerType, from, to });
+    }
   },
 };

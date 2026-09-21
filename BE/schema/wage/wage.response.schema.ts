@@ -34,6 +34,12 @@ export type WorkLogPayable = z.infer<typeof WorkLogPayableSchema>;
 
 export const WorkLogPayableListResponseSchema = z.array(WorkLogPayableSchema);
 
+export const PayWorkLogResponseSchema = z.object({
+  truncated: z.boolean(),
+  to: z.string(),
+});
+export type PayWorkLogResponse = z.infer<typeof PayWorkLogResponseSchema>;
+
 export const RecentWagePaymentSchema = z.object({
   paymentId: objectIdSchema,
   contractorId: objectIdSchema,

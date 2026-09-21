@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSites } from '../context/SitesContext';
@@ -7,6 +7,8 @@ import { Site } from '../api/types';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 
 const STATUS_OPTIONS: Site['status'][] = ['planned', 'active', 'completed', 'on-hold'];
+const STATUS_FILTERS: (Site['status'] | 'all')[] = ['all', ...STATUS_OPTIONS];
+const PAGE_LIMIT = 10;
 
 export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => void }) {
   const { sites, loading, error, refreshSites } = useSites();
@@ -19,6 +21,24 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
   const [formError, setFormError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formExpanded, setFormExpanded] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Site['status'] | 'all'>('all');
+  const [page, setPage] = useState(1);
+
+  const filteredSites = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return sites.filter(
+      (site) => (statusFilter === 'all' || site.status === statusFilter) && (!term || site.name.toLowerCase().includes(term))
+    );
+  }, [sites, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSites.length / PAGE_LIMIT));
+  const pagedSites = filteredSites.slice((page - 1) * PAGE_LIMIT, page * PAGE_LIMIT);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   async function handleCreate() {
     setFormError(null);
@@ -53,7 +73,7 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
   return (
     <View style={styles.container}>
       <FlatList
-        data={sites}
+        data={pagedSites}
         keyExtractor={(item) => item._id}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshSites} />}
@@ -95,10 +115,35 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
               </Pressable>
             </CollapsibleSection>
 
+            <TextInput
+              style={styles.input}
+              placeholder="Search sites by name"
+              value={search}
+              onChangeText={setSearch}
+              autoCapitalize="none"
+            />
+            <View style={styles.filterRow}>
+              {STATUS_FILTERS.map((option) => (
+                <Pressable
+                  key={option}
+                  onPress={() => setStatusFilter(option)}
+                  style={[styles.statusChip, statusFilter === option && styles.statusChipActive]}
+                >
+                  <Text style={[styles.statusChipText, statusFilter === option && styles.statusChipTextActive]}>
+                    {option}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             {error && <Text style={styles.error}>{error}</Text>}
           </>
         }
-        ListEmptyComponent={!loading ? <Text style={styles.empty}>No sites yet</Text> : null}
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={styles.empty}>{sites.length === 0 ? 'No sites yet' : 'No sites match your search'}</Text>
+          ) : null
+        }
         renderItem={({ item }) => (
           <SiteCard
             site={item}
@@ -108,7 +153,44 @@ export function SitesScreen({ onEnterSite }: { onEnterSite: (siteId: string) => 
             onEnter={() => onEnterSite(item._id)}
           />
         )}
+        ListFooterComponent={
+          filteredSites.length > 0 ? (
+            <PaginationControls page={page} totalPages={totalPages} onChange={setPage} />
+          ) : null
+        }
       />
+    </View>
+  );
+}
+
+function PaginationControls({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  return (
+    <View style={styles.pagination}>
+      <Pressable
+        style={[styles.pageButton, page <= 1 && styles.pageButtonDisabled]}
+        onPress={() => onChange(page - 1)}
+        disabled={page <= 1}
+      >
+        <Text style={styles.pageButtonText}>Prev</Text>
+      </Pressable>
+      <Text style={styles.pageIndicator}>
+        Page {page} of {totalPages}
+      </Text>
+      <Pressable
+        style={[styles.pageButton, page >= totalPages && styles.pageButtonDisabled]}
+        onPress={() => onChange(page + 1)}
+        disabled={page >= totalPages}
+      >
+        <Text style={styles.pageButtonText}>Next</Text>
+      </Pressable>
     </View>
   );
 }
@@ -275,4 +357,23 @@ const styles = StyleSheet.create({
   statusChipActive: { backgroundColor: '#ed515b' },
   statusChipText: { color: '#374151', fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
   statusChipTextActive: { color: '#fff' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 16 },
+  pagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  pageButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  pageButtonDisabled: { opacity: 0.4 },
+  pageButtonText: { color: '#374151', fontWeight: '600', fontSize: 13 },
+  pageIndicator: { color: '#6b7280', fontSize: 13 },
 });

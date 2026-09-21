@@ -1,12 +1,22 @@
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Site } from '../api/types';
 import { Card } from '../components/ui/Card';
 import { Screen } from '../components/ui/Screen';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
-export function SiteChooserScreen({ sites, onChoose }: { sites: Site[]; onChoose: (siteId: string) => void }) {
+export function SiteChooserScreen({
+  sites,
+  loading,
+  onRefresh,
+  onChoose,
+}: {
+  sites: Site[];
+  loading: boolean;
+  onRefresh: () => void;
+  onChoose: (siteId: string) => void;
+}) {
   return (
     <Screen contentStyle={styles.content}>
       <Text style={styles.title}>Choose a Site</Text>
@@ -16,8 +26,14 @@ export function SiteChooserScreen({ sites, onChoose }: { sites: Site[]; onChoose
         data={sites}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          <Text style={styles.empty}>No sites have been assigned to you yet — contact your admin.</Text>
+          <View>
+            <Text style={styles.empty}>No sites have been assigned to you yet — contact your admin.</Text>
+            <Pressable onPress={onRefresh} hitSlop={8}>
+              <Text style={styles.refreshLink}>{loading ? 'Refreshing…' : 'Refresh'}</Text>
+            </Pressable>
+          </View>
         }
         renderItem={({ item }) => (
           <Pressable onPress={() => onChoose(item._id)}>
@@ -44,6 +60,13 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.subtitle, marginBottom: spacing.lg },
   list: { gap: spacing.sm },
   empty: { color: colors.textMuted, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xxl },
+  refreshLink: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
   card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardIcon: {
     width: 40,

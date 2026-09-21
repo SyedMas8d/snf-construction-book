@@ -211,6 +211,14 @@ export const api = {
       request<void>('/wages/mark-paid', { method: 'PATCH', body: JSON.stringify(data) }),
     markUnpaid: (data: { site: string; contractor: string; workerType: string; from: string; to: string }) =>
       request<void>('/wages/mark-unpaid', { method: 'PATCH', body: JSON.stringify(data) }),
+    payWorkLog: (data: {
+      site: string;
+      workLogId: string;
+      contractor: string;
+      entries: { workerType: string; amount: number }[];
+    }) => request<{ truncated: boolean; to: string }>('/wages/pay-work-log', { method: 'POST', body: JSON.stringify(data) }),
+    unpayWorkLog: (data: { site: string; workLogId: string; contractor: string; workerTypes: string[] }) =>
+      request<void>('/wages/unpay-work-log', { method: 'POST', body: JSON.stringify(data) }),
   },
   inventory: {
     list: (siteId?: string, params: { page?: number; limit?: number } = {}) =>

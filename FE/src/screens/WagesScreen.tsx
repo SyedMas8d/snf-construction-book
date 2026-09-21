@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSites } from '../context/SitesContext';
 import { ActiveSiteBanner } from '../components/ActiveSiteBanner';
 import { api } from '../api/client';
 import { DailyLog, RecentWagePayment, WorkLogPayable } from '../api/types';
 import { downloadBlobAsFile } from '../utils/downloadBlob';
+import { todayDateString } from '../utils/date';
 import { Screen } from '../components/ui/Screen';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -188,7 +189,14 @@ function WorkLogPayableCard({
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [paying, setPaying] = useState(false);
+  const [unpaying, setUnpaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const rangeTooLong = daysBetween(payable.from, payable.to) > MAX_PAYSHEET_RANGE_DAYS;
+
+  const unpaidRows = payable.rows.filter((row) => row.unpaidWorkerCount > 0);
+  const paidRows = payable.rows.filter((row) => row.unpaidWorkerCount === 0);
 
   async function handleExport() {
     setExportError(null);
@@ -200,6 +208,74 @@ function WorkLogPayableCard({
       setExportError(err instanceof Error ? err.message : 'Failed to export pay slip');
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function submitPayment() {
+    const entries = unpaidRows.map((row) => {
+      const raw = amounts[row.workerType]?.trim();
+      return { workerType: row.workerType, amount: raw ? Number(raw) : 0 };
+    });
+    const invalid = entries.find((e) => Number.isNaN(e.amount) || e.amount < 0);
+    if (invalid) {
+      setPayError(`Enter a valid amount for ${invalid.workerType}`);
+      return;
+    }
+    setPayError(null);
+    setPaying(true);
+    try {
+      const result = await api.wages.payWorkLog({
+        site,
+        workLogId: payable.workLogId,
+        contractor: payable.contractorId,
+        entries,
+      });
+      setAmounts({});
+      await onPaid();
+      if (result.truncated) {
+        Alert.alert(
+          'Work log closed',
+          `This work log's last day is now ${result.to}, since it had future days that hadn't happened yet. Create a new work log for any dates after that.`
+        );
+      }
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Failed to pay');
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  function handlePayAll() {
+    if (unpaidRows.length === 0) return;
+    if (payable.to > todayDateString()) {
+      Alert.alert(
+        'Work log has future days',
+        `This work log runs through ${payable.to}, but paying now will close it early — its last day will be set to the last date with a logged entry, and it won't accept new entries after that. Create a new work log for later dates. Continue?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Pay & Close', style: 'destructive', onPress: submitPayment },
+        ]
+      );
+      return;
+    }
+    submitPayment();
+  }
+
+  async function handleUnpayAll() {
+    setPayError(null);
+    setUnpaying(true);
+    try {
+      await api.wages.unpayWorkLog({
+        site,
+        workLogId: payable.workLogId,
+        contractor: payable.contractorId,
+        workerTypes: payable.rows.map((row) => row.workerType),
+      });
+      await onPaid();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Failed to mark unpaid');
+    } finally {
+      setUnpaying(false);
     }
   }
 
@@ -227,6 +303,7 @@ function WorkLogPayableCard({
         </Text>
       )}
       {exportError && <Text style={styles.error}>{exportError}</Text>}
+
       {payable.rows.map((row) => (
         <PayableRow
           key={row.workerType}
@@ -239,19 +316,32 @@ function WorkLogPayableCard({
               : `Fully paid — ${row.totalWorkerCount} worker-days${row.paidAmount > 0 ? ` · ₹${row.paidAmount}` : ''}`
           }
           payable={row.unpaidWorkerCount > 0}
-          onPay={(amount) =>
-            api.wages.markPaid({
-              site,
-              contractor: payable.contractorId,
-              workerType: row.workerType,
-              from: payable.from,
-              to: payable.to,
-              amount,
-            })
-          }
-          onPaid={onPaid}
+          amount={amounts[row.workerType] ?? ''}
+          onChangeAmount={(value) => setAmounts((current) => ({ ...current, [row.workerType]: value }))}
         />
       ))}
+
+      {payError && <Text style={styles.error}>{payError}</Text>}
+      <View style={styles.cardPayActionsRow}>
+        {unpaidRows.length > 0 && (
+          <Button
+            title={paying ? 'Paying…' : 'Pay'}
+            variant="success"
+            loading={paying}
+            onPress={handlePayAll}
+            style={styles.cardPayButton}
+          />
+        )}
+        {paidRows.length > 0 && (
+          <Button
+            title={unpaying ? 'Saving…' : 'Mark Unpaid'}
+            variant="danger"
+            loading={unpaying}
+            onPress={handleUnpayAll}
+            style={styles.cardPayButton}
+          />
+        )}
+      </View>
     </Card>
   );
 }
@@ -262,20 +352,17 @@ function PayableRow({
   workerType,
   meta,
   payable,
-  onPay,
-  onPaid,
+  amount,
+  onChangeAmount,
 }: {
   site: string;
   workLogId: string;
   workerType: string;
   meta: string;
   payable: boolean;
-  onPay: (amount: number) => Promise<void>;
-  onPaid: () => Promise<void>;
+  amount: string;
+  onChangeAmount: (value: string) => void;
 }) {
-  const [amount, setAmount] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [rowError, setRowError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [history, setHistory] = useState<DailyLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -296,25 +383,6 @@ function PayableRow({
   useEffect(() => {
     if (expanded) loadHistory();
   }, [expanded, loadHistory]);
-
-  async function handlePay() {
-    setRowError(null);
-    const amountValue = Number(amount);
-    if (!amount || Number.isNaN(amountValue) || amountValue < 0) {
-      setRowError('Enter a valid amount');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await onPay(amountValue);
-      setAmount('');
-      await Promise.all([onPaid(), loadHistory()]);
-    } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to pay');
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <View style={styles.entryRow}>
@@ -344,25 +412,15 @@ function PayableRow({
         </View>
       )}
 
-      {rowError && <Text style={styles.error}>{rowError}</Text>}
       {payable && (
-        <View style={styles.payRowActions}>
-          <TextInput
-            style={styles.amountInput}
-            placeholder="Amount"
-            placeholderTextColor={colors.textFaint}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-          />
-          <Button
-            title={submitting ? '…' : 'Pay'}
-            variant="success"
-            loading={submitting}
-            onPress={handlePay}
-            style={styles.payRowButton}
-          />
-        </View>
+        <TextInput
+          style={styles.amountInput}
+          placeholder="Amount (defaults to 0)"
+          placeholderTextColor={colors.textFaint}
+          value={amount}
+          onChangeText={onChangeAmount}
+          keyboardType="numeric"
+        />
       )}
     </View>
   );
@@ -494,9 +552,7 @@ const styles = StyleSheet.create({
   entryMeta: { ...typography.caption },
   entryMetaUnpaid: { color: colors.danger },
   entryMetaPaid: { color: colors.success },
-  payRowActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs, alignItems: 'center' },
   amountInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -505,8 +561,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     backgroundColor: colors.surface,
+    marginTop: spacing.xs,
   },
-  payRowButton: { paddingVertical: 8, paddingHorizontal: spacing.lg },
+  cardPayActionsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  cardPayButton: { flex: 1 },
   historyPanel: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,

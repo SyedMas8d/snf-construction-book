@@ -9,6 +9,7 @@ import { DateRangeSearch } from '../components/DateRangeSearch';
 import { DatePickerField } from '../components/DatePickerField';
 import { api } from '../api/client';
 import { Contractor, DailyLog, WorkLog, WorkLogBucket, WorkLogOverlap } from '../api/types';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import { Card } from '../components/ui/Card';
 import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
@@ -822,8 +823,10 @@ function WorkLogDetail({
 
   return (
     <>
-      <Card style={styles.card}>
-        <Text style={styles.label}>Insert Entry</Text>
+      <CollapsibleSection
+        title="Insert Entry"
+        subtitle={locked ? 'This work log is fully paid' : 'Add a worker-day entry for this work log'}
+      >
         {locked ? (
           <Text style={styles.hint}>This work log is fully paid — entries are locked and can no longer be edited.</Text>
         ) : (
@@ -867,15 +870,28 @@ function WorkLogDetail({
 
             {canInsert && (
               <>
-                <TextField placeholder="Worker count" value={count} onChangeText={setCount} keyboardType="numeric" />
-                <TextField placeholder="Notes (optional)" value={notes} onChangeText={setNotes} />
+                <TextField
+                  placeholder="Worker count"
+                  value={count}
+                  onChangeText={setCount}
+                  keyboardType="numeric"
+                  style={styles.workerCountInput}
+                />
+                <TextField
+                  placeholder="Notes (optional)"
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={3}
+                  style={styles.notesTextArea}
+                />
                 {formError && <Text style={styles.error}>{formError}</Text>}
                 <Button title={submitting ? 'Saving…' : 'Add Entry'} loading={submitting} onPress={handleAddEntry} />
               </>
             )}
           </>
         )}
-      </Card>
+      </CollapsibleSection>
 
       <Card style={styles.card}>
         <Text style={styles.label}>Entries</Text>
@@ -885,21 +901,25 @@ function WorkLogDetail({
         {[...entries]
           .sort((a, b) => a.date.localeCompare(b.date))
           .map((entry) => (
-            <View key={entry._id} style={styles.entryRow}>
-              <Text style={styles.entryText}>
-                {entry.date.slice(0, 10)} · {entry.workerType} ×{entry.count}
-                {entry.notes ? ` · ${entry.notes}` : ''}
-                {entry.createdByName ? (
-                  <>
-                    {' · '}
-                    <Text style={styles.creatorName}>by {entry.createdByName}</Text>
-                  </>
-                ) : null}
-              </Text>
+            <View key={entry._id} style={styles.entryCard}>
+              <View style={styles.entryHeaderRow}>
+                <Text style={styles.entryBadge}>
+                  {entry.workerType} ×{entry.count}
+                </Text>
+                <Text style={styles.entryDate}>{entry.date.slice(0, 10)}</Text>
+              </View>
+              {entry.notes && <Text style={styles.entryNotes}>{entry.notes}</Text>}
+              {entry.createdByName && (
+                <Text style={styles.entryMeta}>
+                  by <Text style={styles.creatorName}>{entry.createdByName}</Text>
+                </Text>
+              )}
               {!locked && (isAdmin || entry.createdBy === user?._id) && (
-                <Pressable onPress={() => handleDelete(entry._id)} hitSlop={8}>
-                  <Text style={styles.deleteText}>Delete</Text>
-                </Pressable>
+                <View style={styles.entryActionsRow}>
+                  <Pressable onPress={() => handleDelete(entry._id)} hitSlop={8}>
+                    <Text style={styles.deleteText}>Delete</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           ))}
@@ -957,7 +977,9 @@ const styles = StyleSheet.create({
   todayEntryLine: { fontSize: 13, color: colors.text, marginLeft: spacing.md },
   todayNotesLine: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic', marginLeft: spacing.md, marginTop: 2 },
   label: typography.label,
-  sublabel: { ...typography.label, marginTop: spacing.sm },
+  sublabel: { ...typography.label, marginTop: spacing.sm, marginBottom: spacing.xs },
+  workerCountInput: { marginBottom: spacing.sm },
+  notesTextArea: { minHeight: 80, textAlignVertical: 'top', paddingTop: spacing.sm, marginBottom: spacing.sm },
   hint: { color: colors.textMuted, fontStyle: 'italic' },
   chipScroll: { flexGrow: 0, marginBottom: spacing.xs },
   error: { color: colors.danger, marginBottom: spacing.sm, fontWeight: '600' },
@@ -997,15 +1019,20 @@ const styles = StyleSheet.create({
   editActionsRow: { flexDirection: 'row', gap: spacing.sm },
   editActionButton: { flex: 1 },
   cardSubtitle: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
-  entryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  entryCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    gap: 2,
   },
-  entryText: { flex: 1, fontSize: 13, color: colors.text },
+  entryHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  entryBadge: { fontSize: 14, fontWeight: '700', color: colors.text },
+  entryDate: { fontSize: 12, color: colors.textMuted },
+  entryNotes: { fontSize: 13, color: colors.textMuted },
+  entryMeta: { fontSize: 12, color: colors.textMuted },
+  entryActionsRow: { flexDirection: 'row', marginTop: spacing.xs },
   creatorName: { fontWeight: '700', color: colors.primaryDark },
-  deleteText: { fontSize: 12, color: colors.danger, fontWeight: '600' },
+  deleteText: { fontSize: 12, color: colors.danger, fontWeight: '600', marginLeft: 'auto' },
 });

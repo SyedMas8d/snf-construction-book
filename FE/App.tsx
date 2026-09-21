@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -21,7 +22,7 @@ import { colors, radius, spacing } from './src/theme/theme';
 
 function MainAppShell() {
   const { user, signOut } = useAuth();
-  const { sites, selectedSiteId, setSelectedSiteId } = useSites();
+  const { sites, selectedSiteId, setSelectedSiteId, loading: sitesLoading, refreshSites } = useSites();
   const [engineerTab, setEngineerTab] = useState<TabKey>('dashboard');
   // Engineers pick a site explicitly on every fresh session instead of inheriting
   // whichever site SitesContext auto-selected — that silent default was the source
@@ -115,6 +116,8 @@ function MainAppShell() {
         ) : needsSiteChoice ? (
           <SiteChooserScreen
             sites={sites}
+            loading={sitesLoading}
+            onRefresh={refreshSites}
             onChoose={(siteId) => {
               setSelectedSiteId(siteId);
               setSiteConfirmed(true);
@@ -183,9 +186,11 @@ function Root() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Root />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
